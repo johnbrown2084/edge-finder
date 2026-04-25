@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edge Finder v3 — Football Value Bets</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff87; --green-dim: #00ff8718; --green-mid: #00cc6a;
+    --yellow: #ffd166; --orange: #ff9f1c; --red: #ff6b6b;
+    --blue: #7db8ff; --purple: #c77dff;
+    --bg: #080b10; --bg2: #0d1117; --bg3: #111827;
+    --border: #1e2430; --text: #dde3ee; --muted: #445566;
+    --mono: 'Share Tech Mono', monospace; --sans: 'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg,#090d15,#0e1624);
+    border-bottom: 1px solid #00ff8733;
+    padding: 16px 32px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-dot {
+    width:11px; height:11px; border-radius:50%;
+    background:var(--green); box-shadow:0 0 14px var(--green);
+    animation:breathe 2.5s ease-in-out infinite;
+  }
+  .logo-dot.scanning { animation:blink 0.5s ease-in-out infinite; }
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:0.35}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+  .logo-text { font-family:var(--sans); font-size:24px; font-weight:900; letter-spacing:5px; color:var(--green); }
+  .logo-sub  { font-size:9px; color:var(--muted); letter-spacing:3px; margin-top:2px; }
+  .vtag { font-size:9px; color:var(--green); background:var(--green-dim); padding:2px 8px; border-radius:2px; margin-left:8px; letter-spacing:2px; }
+  .hstats { display:flex; gap:24px; }
+  .hstat-num { font-family:var(--sans); font-size:28px; font-weight:900; line-height:1; }
+  .hstat-lbl { font-size:9px; color:var(--muted); letter-spacing:2px; margin-top:2px; }
+
+  main { padding:24px 32px; max-width:1500px; margin:0 auto; }
+
+  .controls { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:20px 22px; margin-bottom:20px; }
+  .ctrl-row { display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+  .ctrl-row:last-child { margin-bottom:0; }
+  .ctrl-grp { flex:1; min-width:160px; }
+  .ctrl-lbl { font-size:9px; color:var(--muted); letter-spacing:3px; margin-bottom:7px; display:block; }
+  .chip-row { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip {
+    padding:5px 11px; border-radius:3px; border:1px solid #252d3a;
+    background:transparent; color:#445; font-size:11px; font-family:var(--mono);
+    cursor:pointer; transition:all 0.15s; letter-spacing:1px;
+  }
+  .chip:hover { border-color:#00ff8744; color:var(--green); }
+  .chip.active { border-color:var(--green); background:var(--green-dim); color:var(--green); }
+  .chip.mkt.active { border-color:var(--blue); background:#7db8ff15; color:var(--blue); }
+
+  .btn-row { display:flex; gap:10px; }
+  .run-btn {
+    padding:12px 32px; background:linear-gradient(135deg,var(--green),var(--green-mid));
+    color:#000; border:none; border-radius:4px; font-size:13px; font-weight:900;
+    font-family:var(--sans); letter-spacing:4px; cursor:pointer; transition:all 0.2s;
+  }
+  .run-btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 8px 28px #00ff8750; }
+  .run-btn:disabled { background:#1e2430; color:#334; cursor:not-allowed; }
+  .diag-btn {
+    padding:12px 24px; background:transparent; color:var(--yellow);
+    border:1px solid var(--yellow); border-radius:4px; font-size:12px; font-weight:700;
+    font-family:var(--sans); letter-spacing:3px; cursor:pointer; transition:all 0.2s;
+  }
+  .diag-btn:hover:not(:disabled) { background:#ffd16615; }
+  .diag-btn:disabled { border-color:#334; color:#334; cursor:not-allowed; }
+
+  #loading { display:none; text-align:center; padding:70px 0; }
+  .load-bar-wrap { width:300px; height:2px; background:#1a2030; border-radius:2px; margin:16px auto 0; overflow:hidden; }
+  .load-bar { height:100%; background:var(--green); animation:loadbar 1.4s ease-in-out infinite; box-shadow:0 0 8px var(--green); }
+  @keyframes loadbar{0%{width:0%;margin-left:0%}50%{width:55%;margin-left:22%}100%{width:0%;margin-left:100%}}
+  .load-title { font-family:var(--sans); font-size:12px; letter-spacing:4px; color:var(--green); }
+  .load-step  { font-size:11px; color:#445; letter-spacing:1px; margin-top:12px; min-height:16px; }
+
+  #error-box { display:none; padding:12px 16px; background:#ff6b6b12; border:1px solid #ff6b6b33; border-radius:4px; color:var(--red); font-size:12px; margin-bottom:16px; line-height:1.6; }
+  #empty     { display:none; text-align:center; padding:70px 0; color:#334; font-size:12px; letter-spacing:1px; }
+
+  .tab-bar { display:flex; gap:2px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .tab { padding:8px 20px; font-size:11px; letter-spacing:2px; color:#445; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; font-family:var(--mono); }
+  .tab:hover { color:#667; }
+  .tab.active { color:var(--green); border-bottom-color:var(--green); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .section-hdr { font-size:10px; letter-spacing:4px; color:var(--muted); margin-bottom:12px; padding-bottom:7px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
+  .match-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; margin-bottom:10px; overflow:hidden; }
+  .match-card:hover { border-color:#253040; }
+  .match-hdr { padding:12px 18px; background:var(--bg3); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .match-title { font-family:var(--sans); font-size:16px; font-weight:700; letter-spacing:1px; }
+  .match-vs { color:#334; margin:0 8px; }
+  .match-meta { font-size:10px; color:#445; margin-top:3px; letter-spacing:1px; }
+  .match-count { font-size:10px; color:#445; letter-spacing:2px; }
+  .bets-wrap { padding:8px 16px 12px; display:flex; flex-direction:column; gap:6px; }
+  .bet-row {
+    display:grid; grid-template-columns:190px 82px 82px 82px 125px 1fr;
+    gap:9px; align-items:center; padding:8px 12px;
+    background:#090d14; border-radius:4px; border-left:3px solid transparent;
+  }
+  .bet-row:hover { background:#0c1118; }
+  .bet-market { font-size:12px; font-weight:600; }
+  .bet-cat    { font-size:9px; opacity:0.5; margin-top:2px; letter-spacing:1px; }
+  .bcell { text-align:center; }
+  .bnum { font-family:var(--sans); font-size:16px; font-weight:700; line-height:1; }
+  .blbl { font-size:9px; color:#334; letter-spacing:1px; margin-top:3px; }
+  .edge-pill { display:inline-block; padding:3px 9px; border-radius:3px; font-family:var(--sans); font-size:12px; font-weight:700; letter-spacing:1px; border:1px solid transparent; }
+  .edge-lbl  { font-size:9px; margin-top:3px; letter-spacing:1px; }
+  .b-reason  { font-size:11px; color:#445; line-height:1.5; }
+  .cat-goals{color:var(--blue)} .cat-btts{color:var(--purple)} .cat-result{color:var(--yellow)}
+  .cat-corners{color:var(--orange)} .cat-halftime{color:var(--green)}
+
+  .diag-match { background:var(--bg2); border:1px solid var(--border); border-radius:6px; margin-bottom:10px; overflow:hidden; }
+  .diag-hdr { padding:10px 18px; background:var(--bg3); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .diag-hdr:hover { background:#141c28; }
+  .diag-title { font-family:var(--sans); font-size:15px; font-weight:700; }
+  .diag-body  { padding:14px 18px; display:none; }
+  .diag-body.open { display:block; }
+  .diag-section { margin-bottom:14px; }
+  .diag-section-title { font-size:9px; color:var(--muted); letter-spacing:3px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #1a2030; }
+  .diag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:6px; }
+  .diag-cell { background:#090d14; border-radius:3px; padding:7px 10px; }
+  .diag-cell-label { font-size:9px; color:#445; letter-spacing:1px; }
+  .diag-cell-value { font-size:13px; color:var(--text); margin-top:2px; }
+  .diag-cell-value.ok  { color:var(--green); }
+  .diag-cell-value.warn{ color:var(--yellow); }
+  .diag-cell-value.bad { color:var(--red); }
+  .diag-odds-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .diag-odds-table th { text-align:left; color:#445; font-size:9px; letter-spacing:2px; padding:4px 8px; border-bottom:1px solid #1a2030; font-weight:normal; }
+  .diag-odds-table td { padding:5px 8px; border-bottom:1px solid #12181f; }
+  .diag-odds-table tr:last-child td { border:none; }
+  .toggle-arrow { font-size:11px; color:#445; transition:transform 0.2s; }
+  .toggle-arrow.open { transform:rotate(90deg); }
+
+  footer { text-align:center; margin-top:28px; padding:14px 0 28px; font-size:9px; color:#223; letter-spacing:2px; border-top:1px solid #12181f; }
+  ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:var(--bg)} ::-webkit-scrollbar-thumb{background:#1e2430;border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot" id="logo-dot"></div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="logo-text">Edge Finder</div>
+        <span class="vtag">v3</span>
+      </div>
+      <div class="logo-sub">FOOTBALL VALUE BET ANALYSER</div>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div class="hstats" id="hstats" style="display:none">
+      <div><div class="hstat-num" style="color:var(--green)" id="s-bets">0</div><div class="hstat-lbl">VALUE BETS</div></div>
+      <div><div class="hstat-num" style="color:var(--yellow)" id="s-strong">0</div><div class="hstat-lbl">STRONG EDGE</div></div>
+      <div><div class="hstat-num" style="color:var(--blue)" id="s-fix">0</div><div class="hstat-lbl">FIXTURES</div></div>
+      <div><div class="hstat-num" style="color:var(--orange)" id="s-odds">0</div><div class="hstat-lbl">ODDS MATCHED</div></div>
+    </div>
+    <div style="font-size:10px;color:#334;letter-spacing:2px;margin-top:4px" id="today-lbl"></div>
+  </div>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="ctrl-row">
+      <div class="ctrl-grp" style="flex:2">
+        <span class="ctrl-lbl">LEAGUES</span>
+        <div class="chip-row" id="league-grid"></div>
+      </div>
+      <div class="ctrl-grp">
+        <span class="ctrl-lbl">MIN EDGE %</span>
+        <div class="chip-row" id="edge-chips"></div>
+      </div>
+      <div>
+        <div class="btn-row">
+          <button class="run-btn"  id="run-btn"  onclick="runAnalysis(false)">▶ RUN ANALYSIS</button>
+          <button class="diag-btn" id="diag-btn" onclick="runAnalysis(true)">⚙ DIAGNOSTICS</button>
+        </div>
+      </div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl-grp" style="flex:3">
+        <span class="ctrl-lbl">MARKET FILTER</span>
+        <div class="chip-row" id="mkt-chips"></div>
+      </div>
+      <div class="ctrl-grp">
+        <span class="ctrl-lbl">SORT BY</span>
+        <div class="chip-row" id="sort-chips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="load-title">SCANNING MARKETS</div>
+    <div class="load-bar-wrap"><div class="load-bar"></div></div>
+    <div class="load-step" id="load-step">Initialising...</div>
+  </div>
+  <div id="error-box"></div>
+  <div id="empty">No value bets found.<br><span style="font-size:10px;color:#334;display:block;margin-top:8px">Try lowering minimum edge or run Diagnostics to see what data is available.</span></div>
+
+  <div id="main-content" style="display:none">
+    <div class="tab-bar">
+      <div class="tab active" id="tab-bets" onclick="switchTab('bets')">VALUE BETS</div>
+      <div class="tab" id="tab-diag" onclick="switchTab('diag')">DIAGNOSTICS</div>
+    </div>
+    <div class="tab-panel active" id="panel-bets">
+      <div class="section-hdr"><span id="results-hdr"></span><span id="results-date" style="color:#334"></span></div>
+      <div id="results-list"></div>
+    </div>
+    <div class="tab-panel" id="panel-diag">
+      <div class="section-hdr"><span id="diag-hdr-txt"></span></div>
+      <div id="diag-list"></div>
+    </div>
+  </div>
+
+  <footer>EDGE FINDER v3 &nbsp;·&nbsp; FOR RESEARCH PURPOSES ONLY &nbsp;·&nbsp; PLEASE GAMBLE RESPONSIBLY</footer>
+</main>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — calls our own Netlify function
+// ═══════════════════════════════════════════
+const API_BASE = '/api';
+
+// Leagues loaded dynamically from API — keyed by id after load
+let LEAGUES = [];
+
+// ODDS_SPORT mapping lives in the backend (api.js)
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let selLeagues = [];
+let minEdge    = 2;
+let mktFilter  = 'All';
+let sortMode   = 'Edge';
+let allResults = [];
+let diagData   = [];
+let leagueSearch = '';
+
+// ═══════════════════════════════════════════
+// UI INIT
+// ═══════════════════════════════════════════
+document.getElementById('today-lbl').textContent =
+  new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+function mkChip(label, active, onClick, extraClass='') {
+  const b = document.createElement('button');
+  b.className = 'chip'+(active?' active':'')+(extraClass?' '+extraClass:'');
+  b.textContent = label;
+  b.onclick = onClick;
+  return b;
+}
+
+const PINNED_IDS = [39,40,41,42,140,78,135,61,2,3,88,94,144,169];
+const PINNED_NAMES = {
+  39:'Premier League', 40:'Championship', 41:'League One', 42:'League Two',
+  140:'La Liga', 78:'Bundesliga', 135:'Serie A', 61:'Ligue 1',
+  2:'Champions League', 3:'Europa League', 88:'Eredivisie',
+  94:'Primeira Liga', 144:'Belgium Pro League', 169:'Scottish Prem'
+};
+let allLeaguesOpen = false;
+
+function renderLeagueGrid() {
+  const lgGrid = document.getElementById('league-grid');
+  lgGrid.innerHTML = '';
+  const q = leagueSearch.toLowerCase();
+
+  // ── TOP EUROPEAN LEAGUES ─────────────────────────────
+  const topWrap = document.createElement('div');
+  topWrap.style.cssText = 'width:100%;margin-bottom:10px;';
+  const topLbl = document.createElement('div');
+  topLbl.style.cssText = 'font-size:9px;color:var(--green);letter-spacing:3px;margin-bottom:6px;';
+  topLbl.textContent = '★ TOP EUROPEAN LEAGUES';
+  topWrap.appendChild(topLbl);
+  const topRow = document.createElement('div');
+  topRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;';
+  PINNED_IDS.forEach(id => {
+    const l = LEAGUES.find(x => x.id === id);
+    if (!l) return;
+    if (q && !l.name.toLowerCase().includes(q) && !l.country.toLowerCase().includes(q)) return;
+    const b = mkChip(PINNED_NAMES[id]||l.name, selLeagues.includes(l.id), () => {
+      selLeagues = selLeagues.includes(l.id) ? selLeagues.filter(x=>x!==l.id) : [...selLeagues,l.id];
+      b.classList.toggle('active', selLeagues.includes(l.id));
+    });
+    topRow.appendChild(b);
+  });
+  topWrap.appendChild(topRow);
+  lgGrid.appendChild(topWrap);
+
+  // ── ALL LEAGUES COLLAPSIBLE ───────────────────────────
+  const allWrap = document.createElement('div');
+  allWrap.style.cssText = 'width:100%;';
+
+  const allHeader = document.createElement('div');
+  const pinnedSet = new Set(PINNED_IDS);
+  const otherLeagues = LEAGUES.filter(l => !pinnedSet.has(l.id) &&
+    (!q || l.name.toLowerCase().includes(q) || l.country.toLowerCase().includes(q)));
+  const otherSelected = otherLeagues.filter(l => selLeagues.includes(l.id)).length;
+
+  allHeader.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:3px;cursor:pointer;border:1px solid ${otherSelected?'#00ff8744':'#1e2430'};background:${otherSelected?'#00ff8708':'#090d14'};user-select:none;margin-bottom:4px;`;
+  allHeader.innerHTML = `
+    <span style="font-size:9px;color:${otherSelected?'var(--green)':'#445'};letter-spacing:3px;flex:1">
+      ☰ ALL LEAGUES <span style="color:#334">(${otherLeagues.length})</span>
+    </span>
+    ${otherSelected ? `<span style="font-size:9px;color:var(--green)">${otherSelected} selected</span>` : ''}
+    <span style="font-size:10px;color:#445;transition:transform 0.2s;transform:${allLeaguesOpen||q?'rotate(90deg)':'rotate(0)'}"id="all-leagues-arrow">▶</span>
+  `;
+
+  const allBody = document.createElement('div');
+  allBody.style.cssText = `display:${allLeaguesOpen||q?'block':'none'};`;
+
+  // Group by country inside
+  const byCountry = {};
+  otherLeagues.forEach(l => {
+    if (!byCountry[l.country]) byCountry[l.country] = [];
+    byCountry[l.country].push(l);
+  });
+
+  Object.keys(byCountry).sort().forEach(country => {
+    const grp = document.createElement('div');
+    grp.style.cssText = 'margin-bottom:6px;';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:9px;color:#445;letter-spacing:2px;margin:4px 0 4px 2px;';
+    lbl.textContent = country.toUpperCase();
+    grp.appendChild(lbl);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;';
+    byCountry[country].forEach(l => {
+      const b = mkChip(l.name, selLeagues.includes(l.id), () => {
+        selLeagues = selLeagues.includes(l.id) ? selLeagues.filter(x=>x!==l.id) : [...selLeagues,l.id];
+        b.classList.toggle('active', selLeagues.includes(l.id));
+        renderLeagueGrid();
+      });
+      row.appendChild(b);
+    });
+    grp.appendChild(row);
+    allBody.appendChild(grp);
+  });
+
+  allHeader.onclick = () => {
+    allLeaguesOpen = !allLeaguesOpen;
+    renderLeagueGrid();
+  };
+
+  allWrap.appendChild(allHeader);
+  allWrap.appendChild(allBody);
+  lgGrid.appendChild(allWrap);
+
+  if (!topRow.children.length && !otherLeagues.length) {
+    lgGrid.innerHTML = '<div style="color:#445;font-size:11px">No leagues found</div>';
+  }
+}
+
+async function loadLeagues() {
+  const lgGrid = document.getElementById('league-grid');
+  lgGrid.innerHTML = '<div style="color:#445;font-size:11px;letter-spacing:1px">LOADING LEAGUES...</div>';
+  try {
+    const r = await fetch(`${API_BASE}?type=leagues`);
+    const data = await r.json();
+    if (Array.isArray(data)) {
+      LEAGUES = data.sort((a,b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+      // Default select the big 5
+      selLeagues = LEAGUES.filter(l => [39,140,78,135,61].includes(l.id)).map(l => l.id);
+      renderLeagueGrid();
+    } else {
+      lgGrid.innerHTML = '<div style="color:var(--red);font-size:11px">Failed to load leagues</div>';
+    }
+  } catch(e) {
+    lgGrid.innerHTML = `<div style="color:var(--red);font-size:11px">Error: ${e.message}</div>`;
+  }
+}
+
+// Search box for leagues
+const searchWrap = document.createElement('div');
+searchWrap.style.cssText = 'width:100%;margin-bottom:8px;';
+searchWrap.innerHTML = `<input id="league-search" placeholder="Search leagues or countries..." style="background:#090d14;border:1px solid #1e2430;border-radius:3px;padding:6px 10px;color:var(--text);font-family:var(--mono);font-size:11px;width:100%;outline:none;" />`;
+document.getElementById('league-grid').before(searchWrap);
+document.getElementById('league-search').addEventListener('input', e => {
+  leagueSearch = e.target.value;
+  renderLeagueGrid();
+});
+
+loadLeagues();
+
+const edgeEl = document.getElementById('edge-chips');
+[1,2,3,5,8].forEach(v => {
+  const b = mkChip(v+'%+', v===minEdge, () => {
+    minEdge=v;
+    document.querySelectorAll('#edge-chips .chip').forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+    renderBets();
+  });
+  edgeEl.appendChild(b);
+});
+
+const mktEl = document.getElementById('mkt-chips');
+['All','Goals','BTTS','Result','Handicap','Corners','Half Time'].forEach(m => {
+  const b = mkChip(m, m===mktFilter, () => {
+    mktFilter=m;
+    document.querySelectorAll('#mkt-chips .chip').forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+    renderBets();
+  }, 'mkt');
+  mktEl.appendChild(b);
+});
+
+const sortEl = document.getElementById('sort-chips');
+['Edge','Odds','League'].forEach(s => {
+  const b = mkChip(s, s===sortMode, () => {
+    sortMode=s;
+    document.querySelectorAll('#sort-chips .chip').forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+    renderBets();
+  });
+  sortEl.appendChild(b);
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+const today    = () => new Date().toISOString().split('T')[0];
+const implProb = odds => odds ? (1/odds)*100 : null;
+const norm     = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const setStep  = msg => document.getElementById('load-step').textContent = msg;
+const showB    = id => document.getElementById(id).style.display='block';
+const hide     = id => document.getElementById(id).style.display='none';
+
+// ═══════════════════════════════════════════
+// API CALLS — via Netlify function
+// ═══════════════════════════════════════════
+async function analyseLeague(lid, leagueName, season, date) {
+  const r = await fetch(`${API_BASE}?type=analyse&league=${lid}&season=${season}&date=${date}&leagueName=${encodeURIComponent(leagueName)}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// MAIN RUN
+// ═══════════════════════════════════════════
+async function runAnalysis(diagMode) {
+  if (!selLeagues.length) { alert('Select at least one league.'); return; }
+  document.getElementById('run-btn').disabled=true;
+  document.getElementById('diag-btn').disabled=true;
+  document.getElementById('logo-dot').classList.add('scanning');
+  hide('main-content'); hide('empty'); hide('error-box');
+  showB('loading');
+  allResults=[]; diagData=[];
+  let totalFix=0, oddsMatched=0;
+  const date = new Date().toISOString().split('T')[0];
+
+  try {
+    for (const lid of selLeagues) {
+      const lg = LEAGUES.find(l => l.id === lid);
+      if (!lg) continue;
+      setStep(`Analysing ${lg.name}...`);
+
+      try {
+        const data = await analyseLeague(lid, lg.name, lg.season, date);
+
+        if (!data.results || data.results.length === 0) {
+          diagData.push({ league: lg.name, error: data.diag || 'No upcoming fixtures today' });
+          continue;
+        }
+
+        for (const res of data.results) {
+          totalFix++;
+          if (res.odds) oddsMatched++;
+
+          // Convert backend result to frontend format
+          allResults.push({
+            fixture: {
+              fixture: { date: res.fixture.date },
+              teams: { home: { name: res.fixture.home }, away: { name: res.fixture.away } }
+            },
+            anomalies: res.bets,
+            odds: res.odds,
+            expTotal: res.expTotal,
+            expHome: res.expHome,
+            expAway: res.expAway,
+            league: res.league,
+          });
+          diagData.push(res.diag);
+        }
+      } catch(e) {
+        diagData.push({ league: lg.name, error: e.message });
+      }
+    }
+
+    document.getElementById('s-fix').textContent=totalFix;
+    document.getElementById('s-odds').textContent=oddsMatched;
+    document.getElementById('s-bets').textContent=allResults.reduce((a,r)=>a+r.anomalies.length,0);
+    document.getElementById('s-strong').textContent=allResults.reduce((a,r)=>a+r.anomalies.filter(x=>(x.edge||0)>=8).length,0);
+    document.getElementById('hstats').style.display='flex';
+    hide('loading');
+    showB('main-content');
+    renderBets();
+    renderDiag();
+    if (diagMode) switchTab('diag');
+
+  } catch(e) {
+    hide('loading');
+    document.getElementById('error-box').textContent='⚠ '+e.message;
+    showB('error-box');
+  }
+
+  document.getElementById('run-btn').disabled=false;
+  document.getElementById('diag-btn').disabled=false;
+  document.getElementById('logo-dot').classList.remove('scanning');
+}
+
+// ═══════════════════════════════════════════
+// RENDER BETS
+// ═══════════════════════════════════════════
+function edgeStyle(edge) {
+  if (!edge)    return {color:'#445',bg:'#44551115',label:'NO ODDS'};
+  if (edge>=10) return {color:'#00ff87',bg:'#00ff8715',label:'STRONG VALUE'};
+  if (edge>=6)  return {color:'#7dff6b',bg:'#7dff6b12',label:'VALUE'};
+  if (edge>=3)  return {color:'#ffd166',bg:'#ffd16612',label:'MARGINAL'};
+  return              {color:'#ff9f1c',bg:'#ff9f1c10',label:'SLIM EDGE'};
+}
+const catCls={Goals:'cat-goals',BTTS:'cat-btts',Result:'cat-result',Corners:'cat-corners','Half Time':'cat-halftime'};
+
+function renderBets() {
+  const filtered=allResults.map(r=>({
+    ...r,
+    anomalies:r.anomalies.filter(a=>{
+      const edgeOk=(a.edge||0)>=minEdge||(a.edge===null&&a.dataProb>=58);
+      const mktOk=mktFilter==='All'||a.category===mktFilter;
+      return edgeOk&&mktOk;
+    })
+  })).filter(r=>r.anomalies.length>0);
+
+  if (sortMode==='Odds') filtered.sort((a,b)=>(b.anomalies[0]?.odds||0)-(a.anomalies[0]?.odds||0));
+  else if (sortMode==='League') filtered.sort((a,b)=>a.league.localeCompare(b.league));
+  else filtered.sort((a,b)=>(b.anomalies[0]?.edge||0)-(a.anomalies[0]?.edge||0));
+
+  const totalBets=filtered.reduce((a,r)=>a+r.anomalies.length,0);
+  document.getElementById('results-hdr').textContent=
+    `${filtered.length} MATCH${filtered.length!==1?'ES':''} · ${totalBets} BET${totalBets!==1?'S':''} FOUND`;
+  document.getElementById('results-date').textContent=today();
+
+  const list=document.getElementById('results-list');
+  list.innerHTML='';
+
+  if (!filtered.length) {
+    list.innerHTML='<div style="text-align:center;padding:40px 0;color:#334;font-size:12px;letter-spacing:1px">No value bets above threshold. Try lowering Min Edge or check the Diagnostics tab.</div>';
+    return;
+  }
+
+  for (const r of filtered) {
+    const ko=new Date(r.fixture.fixture.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    const card=document.createElement('div');
+    card.className='match-card';
+    let bH='';
+    for (const a of r.anomalies) {
+      const es=edgeStyle(a.edge);
+      const cc=catCls[a.category]||'';
+      bH+=`<div class="bet-row" style="border-left-color:${es.color}">
+        <div><div class="bet-market" style="color:${es.color}">${a.market}</div><div class="bet-cat ${cc}">${a.category}</div></div>
+        <div class="bcell"><div class="bnum" style="color:#dde">${a.odds?a.odds.toFixed(2):'—'}</div><div class="blbl">ODDS</div></div>
+        <div class="bcell"><div class="bnum" style="color:var(--blue)">${a.dataProb}%</div><div class="blbl">DATA PROB</div></div>
+        <div class="bcell"><div class="bnum" style="color:#556">${a.impliedProb?a.impliedProb.toFixed(1)+'%':'—'}</div><div class="blbl">MKT PROB</div></div>
+        <div class="bcell">
+          <div class="edge-pill" style="color:${es.color};background:${es.bg};border-color:${es.color}44">${a.edge?'+'+a.edge.toFixed(1)+'%':'NO ODDS'}</div>
+          <div class="edge-lbl" style="color:${es.color}">${es.label}</div>
+        </div>
+        <div class="b-reason">${a.reasoning}</div>
+      </div>`;
+    }
+    card.innerHTML=`
+      <div class="match-hdr">
+        <div>
+          <div class="match-title">${r.fixture.teams.home.name}<span class="match-vs">vs</span>${r.fixture.teams.away.name}</div>
+          <div class="match-meta">${r.league} · KO ${ko}${r.expTotal?` · xG: ${parseFloat(r.expHome).toFixed(2)}–${parseFloat(r.expAway).toFixed(2)}`:''}</div>
+        </div>
+        <div class="match-count">${r.anomalies.length} BET${r.anomalies.length!==1?'S':''}</div>
+      </div>
+      <div class="bets-wrap">${bH}</div>`;
+    list.appendChild(card);
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER DIAGNOSTICS
+// ═══════════════════════════════════════════
+function sc(val, goodIf) {
+  if (val===null||val===undefined) return 'bad';
+  if (goodIf&&goodIf(val)) return 'ok';
+  return 'warn';
+}
+
+function renderDiag() {
+  const list=document.getElementById('diag-list');
+  list.innerHTML='';
+  document.getElementById('diag-hdr-txt').textContent=
+    `${diagData.filter(d=>!d.error).length} FIXTURES DIAGNOSED`;
+
+  for (const d of diagData) {
+    const el=document.createElement('div');
+    el.className='diag-match';
+
+    if (d.error) {
+      el.innerHTML=`<div class="diag-hdr"><div class="diag-title" style="color:var(--red)">${d.league} — ${d.error}</div></div>`;
+      list.appendChild(el);
+      continue;
+    }
+
+    const ko=d.ko?new Date(d.ko).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'?';
+    const betsFound=d.bets?.length||0;
+
+    const oddsHtml=d.oddsAvailable?.length
+      ?`<table class="diag-odds-table"><tr><th>MARKET</th><th>STATUS</th></tr>${d.oddsAvailable.map(k=>`<tr><td>${k}</td><td style="color:var(--green)">✓</td></tr>`).join('')}</table>`
+      :`<div style="color:var(--red);font-size:11px">No odds found for this match</div>`;
+
+    const betsHtml=d.bets?.length
+      ?`<table class="diag-odds-table">
+          <tr><th>MARKET</th><th>DATA%</th><th>MKT%</th><th>EDGE</th><th>ODDS</th></tr>
+          ${d.bets.map(b=>`<tr>
+            <td>${b.market}</td>
+            <td style="color:var(--blue)">${b.dataProb}%</td>
+            <td style="color:#556">${b.impl?b.impl+'%':'—'}</td>
+            <td style="color:${b.edge&&parseFloat(b.edge)>3?'var(--green)':b.edge?'var(--yellow)':'#445'}">${b.edge?'+'+b.edge+'%':'—'}</td>
+            <td style="color:${b.hasOdds?'var(--green)':'var(--red)'}">${b.hasOdds?'✓':'✗'}</td>
+          </tr>`).join('')}
+        </table>`
+      :`<div style="color:var(--red);font-size:11px">No bets generated — likely missing stats</div>`;
+
+    const warnHtml=d.warnings?.length
+      ?d.warnings.map(w=>`<div style="color:var(--yellow);font-size:11px;margin-bottom:4px">⚠ ${w}</div>`).join('')
+      :`<div style="color:var(--green);font-size:11px">No warnings</div>`;
+
+    el.innerHTML=`
+      <div class="diag-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.toggle-arrow').classList.toggle('open')">
+        <div>
+          <div class="diag-title">${d.home} <span style="color:#334">vs</span> ${d.away}</div>
+          <div style="font-size:10px;color:#445;margin-top:3px;letter-spacing:1px">
+            ${d.league} · KO ${ko} ·
+            <span style="color:${d.homeStatsFound?'var(--green)':'var(--red)'}">Home sts ${d.homeStatsFound?'✓':'✗'}</span> ·
+            <span style="color:${d.awayStatsFound?'var(--green)':'var(--red)'}">Away sts ${d.awayStatsFound?'✓':'✗'}</span> ·
+            <span style="color:${d.oddsFound?'var(--green)':'var(--red)'}">Odds ${d.oddsFound?'✓':'✗'}</span> ·
+            <span style="color:${betsFound>0?'var(--green)':'var(--yellow)'}">${betsFound} bets</span>
+          </div>
+        </div>
+        <span class="toggle-arrow">▶</span>
+      </div>
+      <div class="diag-body">
+        <div class="diag-section">
+          <div class="diag-section-title">STATS</div>
+          <div class="diag-grid">
+            <div class="diag-cell"><div class="diag-cell-label">HOME GP</div><div class="diag-cell-value ${sc(d.homeGP,v=>v>5)}">${d.homeGP??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">AWAY GP</div><div class="diag-cell-value ${sc(d.awayGP,v=>v>5)}">${d.awayGP??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">HOME GF/G</div><div class="diag-cell-value ${sc(d.homeGFpg,v=>v!==null)}">${d.homeGFpg??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">HOME GA/G</div><div class="diag-cell-value ${sc(d.homeGApg,v=>v!==null)}">${d.homeGApg??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">AWAY GF/G</div><div class="diag-cell-value ${sc(d.awayGFpg,v=>v!==null)}">${d.awayGFpg??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">AWAY GA/G</div><div class="diag-cell-value ${sc(d.awayGApg,v=>v!==null)}">${d.awayGApg??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">EXP HOME</div><div class="diag-cell-value ${sc(d.expHome,v=>v!==null)}">${d.expHome??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">EXP AWAY</div><div class="diag-cell-value ${sc(d.expAway,v=>v!==null)}">${d.expAway??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">EXP TOTAL</div><div class="diag-cell-value ${sc(d.expTotal,v=>v!==null)}">${d.expTotal??'—'}</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">BTTS %</div><div class="diag-cell-value">${d.bttsPct??'—'}%</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">HOME CS%</div><div class="diag-cell-value">${d.homeCSPct??'—'}%</div></div>
+            <div class="diag-cell"><div class="diag-cell-label">AWAY CS%</div><div class="diag-cell-value">${d.awayCSPct??'—'}%</div></div>
+          </div>
+        </div>
+        <div class="diag-section"><div class="diag-section-title">ODDS ${d.matchedEvent?`(${d.matchedEvent})`:''}</div>${oddsHtml}</div>
+        <div class="diag-section"><div class="diag-section-title">BETS GENERATED</div>${betsHtml}</div>
+        <div class="diag-section"><div class="diag-section-title">WARNINGS</div>${warnHtml}</div>
+      </div>`;
+    list.appendChild(el);
+  }
+}
+</script>
+</body>
+</html>
